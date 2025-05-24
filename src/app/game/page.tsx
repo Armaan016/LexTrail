@@ -53,11 +53,15 @@ export default function GamePage() {
     const [score, setScore] = useState<number>(0);
     const [message, setMessage] = useState<string>("");
     const [usedWords, setUsedWords] = useState<Set<string>>(new Set());
+    const [streak, setStreak] = useState<number>(0);
+    const [multiplier, setMultiplier] = useState<number>(1);
 
     useEffect(() => {
         setGrid(generateGrid());
         setBlockedCells(generateBlockedCells());
         setUsedWords(new Set());
+        setStreak(0);
+        setMultiplier(1);
     }, []);
 
     const regenerate = () => {
@@ -66,6 +70,8 @@ export default function GamePage() {
         setSelected([]);
         setMessage("");
         setUsedWords(new Set());
+        setStreak(0);
+        setMultiplier(1);
     };
 
     const handleSelect = (rowIdx: number, colIdx: number) => {
@@ -107,16 +113,25 @@ export default function GamePage() {
         if (usedWords.has(word.toLowerCase())) {
             setMessage(`⚠️ "${word}" has already been used!`);
             setSelected([]);
+            setStreak(0);
+            setMultiplier(1);
             return;
         }
         setMessage("Checking...");
         const exists = await checkWord(word);
         if (exists) {
-            setScore((s) => s + 5);
+            // Points: 1 per character, times multiplier
+            const basePoints = word.length;
+            const totalPoints = Math.round(basePoints * multiplier);
+            setScore((s) => s + totalPoints);
             setUsedWords(prev => new Set(prev).add(word.toLowerCase()));
-            setMessage(`✅ "${word}" is valid! +5 points`);
+            setStreak((prev) => prev + 1);
+            setMultiplier((prev) => prev + 0.5);
+            setMessage(`✅ "${word}" is valid! +${totalPoints} points (x${multiplier.toFixed(1)})`);
         } else {
             setScore((s) => Math.max(0, s - 3));
+            setStreak(0);
+            setMultiplier(1);
             setMessage(`❌ "${word}" is not a valid word. -3 points`);
         }
         setSelected([]);
@@ -132,6 +147,12 @@ export default function GamePage() {
             <div className="mb-4 flex items-center gap-6">
                 <span className="text-lg font-semibold bg-blue-100 text-blue-800 px-4 py-2 rounded">
                     Score: {score}
+                </span>
+                <span className="text-lg font-semibold bg-yellow-100 text-yellow-800 px-4 py-2 rounded">
+                    Multiplier: x{multiplier.toFixed(1)}
+                </span>
+                <span className="text-lg font-semibold bg-green-100 text-green-800 px-4 py-2 rounded">
+                    Streak: {streak}
                 </span>
                 <button
                     className="px-4 py-2 bg-blue-500 text-white rounded hover:bg-blue-600"
