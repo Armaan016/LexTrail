@@ -7,16 +7,27 @@ const db = mysql.createPool({
   database: "lextrail",
 });
 
-export default async function handler(req, res) {
-  if (req.method === "POST") {
-    const { username, score } = req.body;
-    if (!username || typeof score !== "number") return res.status(400).end();
-    await db.query("INSERT INTO leaderboard (username, score) VALUES (?, ?)", [username, score]);
-    return res.status(201).end();
+async function testConnection() {
+  try {
+    await db.query("SELECT 1");
+    console.log("✅ MySQL connection successful");
+  } catch (err) {
+    console.error("❌ MySQL connection failed:", err);
   }
-  if (req.method === "GET") {
-    const [rows] = await db.query("SELECT username, score FROM leaderboard ORDER BY score DESC LIMIT 10");
-    return res.status(200).json(rows);
+}
+
+export async function POST(request) {
+  await testConnection();
+  const { username, score } = await request.json();
+  if (!username || typeof score !== "number") {
+    return new Response("Invalid input", { status: 400 });
   }
-  res.status(405).end();
+  await db.query("INSERT INTO leaderboard (username, score) VALUES (?, ?)", [username, score]);
+  return new Response(null, { status: 201 });
+}
+
+export async function GET() {
+  await testConnection();
+  const [rows] = await db.query("SELECT username, score FROM leaderboard ORDER BY score DESC LIMIT 10");
+  return Response.json(rows, { status: 200 });
 }

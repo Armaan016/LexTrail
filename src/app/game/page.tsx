@@ -67,6 +67,20 @@ export default function GamePage() {
     const timerRef = useRef<NodeJS.Timeout | null>(null);
 
     useEffect(() => {
+        fetch("/api/leaderboard")
+            .then(res => res.json())
+            .then(setLeaderboard);
+    }, []);
+
+    useEffect(() => {
+        if (scoreSubmitted) {
+            fetch("/api/leaderboard")
+                .then(res => res.json())
+                .then(setLeaderboard);
+        }
+    }, [scoreSubmitted]);
+
+    useEffect(() => {
         setGrid(generateGrid());
         setBlockedCells(generateBlockedCells());
         setUsedWords(new Set());
@@ -208,148 +222,150 @@ export default function GamePage() {
     }
 
     return (
-        <div className="flex flex-col items-center min-h-screen p-8 relative">
-            <h1 className="text-2xl font-bold mb-2">Word Pathfinder: Grid Lexicon</h1>
-            <div className="mb-4 flex items-center gap-6">
-                <span className="text-lg font-semibold bg-blue-100 text-blue-800 px-4 py-2 rounded">
-                    Score: {score}
-                </span>
-                <span className="text-lg font-semibold bg-yellow-100 text-yellow-800 px-4 py-2 rounded">
-                    Multiplier: x{multiplier.toFixed(1)}
-                </span>
-                <span className="text-lg font-semibold bg-green-100 text-green-800 px-4 py-2 rounded">
-                    Streak: {streak}
-                </span>
-                <span className={`text-lg font-semibold px-4 py-2 rounded ${timeLeft <= 10 ? "bg-red-200 text-red-800" : "bg-gray-100 text-gray-800"}`}>
-                    ⏰ {timeLeft}s
-                </span>
-                <button
-                    className="px-4 py-2 bg-blue-500 text-white rounded hover:bg-blue-600"
-                    onClick={regenerateGrid}
-                    disabled={gameOver}
-                >
-                    Regenerate Grid
-                </button>
-                <button
-                    className="px-4 py-2 bg-gray-400 text-white rounded hover:bg-gray-500"
-                    onClick={regenerate}
-                >
-                    Reset Game
-                </button>
-                {!started && !gameOver && (
+        <div className="flex flex-row min-h-screen p-8 relative">
+            {/* Main Game Area */}
+            <div className="flex flex-col items-center flex-1">
+                <h1 className="text-2xl font-bold mb-2">Word Pathfinder: Grid Lexicon</h1>
+                <div className="mb-4 flex items-center gap-6">
+                    <span className="text-lg font-semibold bg-blue-100 text-blue-800 px-4 py-2 rounded">
+                        Score: {score}
+                    </span>
+                    <span className="text-lg font-semibold bg-yellow-100 text-yellow-800 px-4 py-2 rounded">
+                        Multiplier: x{multiplier.toFixed(1)}
+                    </span>
+                    <span className="text-lg font-semibold bg-green-100 text-green-800 px-4 py-2 rounded">
+                        Streak: {streak}
+                    </span>
+                    <span className={`text-lg font-semibold px-4 py-2 rounded ${timeLeft <= 10 ? "bg-red-200 text-red-800" : "bg-gray-100 text-gray-800"}`}>
+                        ⏰ {timeLeft}s
+                    </span>
                     <button
-                        className="px-4 py-2 bg-green-600 text-white rounded hover:bg-green-700"
-                        onClick={() => setStarted(true)}
+                        className="px-4 py-2 bg-blue-500 text-white rounded hover:bg-blue-600"
+                        onClick={regenerateGrid}
+                        disabled={gameOver}
                     >
-                        Start
+                        Regenerate Grid
                     </button>
-                )}
-            </div>
-            <div className="grid grid-cols-5 gap-2 mb-4">
-                {grid.map((row, rowIdx) =>
-                    row.map((letter, colIdx) => {
-                        const key = `${rowIdx},${colIdx}`;
-                        const isBlocked = blockedCells.has(key);
-                        const isSelected = selected.includes(key);
-                        return (
-                            <button
-                                key={key}
-                                className={`w-12 h-12 rounded text-xl font-mono flex items-center justify-center border select-none
-                                    transition-colors
-                                    ${isBlocked
-                                        ? "bg-gray-400 text-gray-300 border-gray-400 cursor-not-allowed"
-                                        : isSelected
-                                            ? "bg-gray-600 text-white border-gray-700"
-                                            : "bg-gray-100 dark:bg-gray-800 border-gray-300 dark:border-gray-700 hover:bg-gray-200 dark:hover:bg-gray-700 cursor-pointer"
-                                    }`}
-                                disabled={isBlocked || gameOver || !started}
-                                onClick={() => handleSelect(rowIdx, colIdx)}
-                            >
-                                {isBlocked ? "✖" : letter}
-                            </button>
-                        );
-                    })
-                )}
-            </div>
-            <div className="flex flex-col items-center gap-2">
-                <div className="text-lg font-mono tracking-widest min-h-[2rem]">
-                    {selected
-                        .map((key) => {
-                            const [row, col] = key.split(",").map(Number);
-                            return grid[row][col];
-                        })
-                        .join("")}
-                </div>
-                <button
-                    className="px-6 py-2 bg-green-600 text-white rounded hover:bg-green-700 disabled:opacity-50"
-                    onClick={handleSubmit}
-                    disabled={selected.length === 0 || gameOver || !started}
-                >
-                    Submit Word
-                </button>
-                {message && (
-                    <div className="mt-2 text-base text-center">{message}</div>
-                )}
-                {usedWords.size > 0 && (
-                    <div className="mt-4 w-full max-w-xs">
-                        <div className="font-semibold mb-1 text-gray-700">Used Words:</div>
-                        <ul className="flex flex-wrap gap-2">
-                            {[...usedWords].map((word) => (
-                                <li key={word} className="bg-gray-200 text-gray-700 px-2 py-1 rounded text-xs font-mono">
-                                    {word}
-                                </li>
-                            ))}
-                        </ul>
-                    </div>
-                )}
-            </div>
-            {/* Modal for Game Over */}
-            {gameOver && (
-                <div className="fixed inset-0 bg-black bg-opacity-40 flex items-center justify-center z-50">
-                    <div className="bg-gradient-to-br from-blue-600 to-blue-400 rounded-xl shadow-2xl p-8 flex flex-col items-center max-w-xs w-full border-4 border-blue-700">
-                        <h2 className="text-3xl font-extrabold mb-3 text-white text-center drop-shadow">⏰ Time&apos;s Up!</h2>
-                        <div className="text-lg mb-4 text-center text-white font-semibold">
-                            Your Score: <span className="font-extrabold text-yellow-300 text-2xl">{score}</span>
-                        </div>
-                        {!scoreSubmitted && showUsernameModal && (
-                            <div className="w-full flex flex-col items-center">
-                                <input
-                                    className="mb-2 px-3 py-2 rounded text-blue-900 w-full"
-                                    placeholder="Enter your name"
-                                    value={username}
-                                    onChange={e => setUsername(e.target.value)}
-                                    maxLength={32}
-                                />
-                                <button
-                                    className="px-6 py-2 bg-yellow-400 text-blue-900 font-bold rounded shadow hover:bg-yellow-300 transition"
-                                    onClick={submitScore}
-                                    disabled={!username.trim()}
-                                >
-                                    Submit Score
-                                </button>
-                            </div>
-                        )}
-                        {scoreSubmitted && (
-                            <div className="w-full mt-4">
-                                <h3 className="text-xl text-white font-bold mb-2 text-center">🏆 Leaderboard</h3>
-                                <ul className="bg-white rounded p-2 text-blue-900 text-center">
-                                    {leaderboard.map((entry, i) => (
-                                        <li key={i} className="py-1">
-                                            <span className="font-bold">{entry.username}</span>: {entry.score}
-                                        </li>
-                                    ))}
-                                </ul>
-                            </div>
-                        )}
+                    <button
+                        className="px-4 py-2 bg-gray-400 text-white rounded hover:bg-gray-500"
+                        onClick={regenerate}
+                    >
+                        Reset Game
+                    </button>
+                    {!started && !gameOver && (
                         <button
-                            className="mt-4 px-6 py-2 bg-blue-900 text-white font-bold rounded shadow hover:bg-blue-800 transition"
-                            onClick={regenerate}
+                            className="px-4 py-2 bg-green-600 text-white rounded hover:bg-green-700"
+                            onClick={() => setStarted(true)}
                         >
-                            Play Again
+                            Start
                         </button>
-                    </div>
+                    )}
                 </div>
-            )}
+                <div className="grid grid-cols-5 gap-2 mb-4">
+                    {grid.map((row, rowIdx) =>
+                        row.map((letter, colIdx) => {
+                            const key = `${rowIdx},${colIdx}`;
+                            const isBlocked = blockedCells.has(key);
+                            const isSelected = selected.includes(key);
+                            return (
+                                <button
+                                    key={key}
+                                    className={`w-12 h-12 rounded text-xl font-mono flex items-center justify-center border select-none
+                                        transition-colors
+                                        ${isBlocked
+                                            ? "bg-gray-400 text-gray-300 border-gray-400 cursor-not-allowed"
+                                            : isSelected
+                                                ? "bg-gray-600 text-white border-gray-700"
+                                                : "bg-gray-100 dark:bg-gray-800 border-gray-300 dark:border-gray-700 hover:bg-gray-200 dark:hover:bg-gray-700 cursor-pointer"
+                                        }`}
+                                    disabled={isBlocked || gameOver || !started}
+                                    onClick={() => handleSelect(rowIdx, colIdx)}
+                                >
+                                    {isBlocked ? "✖" : letter}
+                                </button>
+                            );
+                        })
+                    )}
+                </div>
+                <div className="flex flex-col items-center gap-2">
+                    <div className="text-lg font-mono tracking-widest min-h-[2rem]">
+                        {selected
+                            .map((key) => {
+                                const [row, col] = key.split(",").map(Number);
+                                return grid[row][col];
+                            })
+                            .join("")}
+                    </div>
+                    <button
+                        className="px-6 py-2 bg-green-600 text-white rounded hover:bg-green-700 disabled:opacity-50"
+                        onClick={handleSubmit}
+                        disabled={selected.length === 0 || gameOver || !started}
+                    >
+                        Submit Word
+                    </button>
+                    {message && (
+                        <div className="mt-2 text-base text-center">{message}</div>
+                    )}
+                    {usedWords.size > 0 && (
+                        <div className="mt-4 w-full max-w-xs">
+                            <div className="font-semibold mb-1 text-gray-700">Used Words:</div>
+                            <ul className="flex flex-wrap gap-2">
+                                {[...usedWords].map((word) => (
+                                    <li key={word} className="bg-gray-200 text-gray-700 px-2 py-1 rounded text-xs font-mono">
+                                        {word}
+                                    </li>
+                                ))}
+                            </ul>
+                        </div>
+                    )}
+                </div>
+                {/* Modal for Game Over */}
+                {gameOver && (
+                    <div className="fixed inset-0 bg-black bg-opacity-40 flex items-center justify-center z-50">
+                        <div className="bg-gradient-to-br from-blue-600 to-blue-400 rounded-xl shadow-2xl p-8 flex flex-col items-center max-w-xs w-full border-4 border-blue-700">
+                            <h2 className="text-3xl font-extrabold mb-3 text-white text-center drop-shadow">⏰ Time&apos;s Up!</h2>
+                            <div className="text-lg mb-4 text-center text-white font-semibold">
+                                Your Score: <span className="font-extrabold text-yellow-300 text-2xl">{score}</span>
+                            </div>
+                            {!scoreSubmitted && showUsernameModal && (
+                                <div className="w-full flex flex-col items-center">
+                                    <input
+                                        className="mb-2 px-3 py-2 rounded text-blue-900 w-full"
+                                        placeholder="Enter your name"
+                                        value={username}
+                                        onChange={e => setUsername(e.target.value)}
+                                        maxLength={32}
+                                    />
+                                    <button
+                                        className="px-6 py-2 bg-yellow-400 text-blue-900 font-bold rounded shadow hover:bg-yellow-300 transition"
+                                        onClick={submitScore}
+                                        disabled={!username.trim()}
+                                    >
+                                        Submit Score
+                                    </button>
+                                </div>
+                            )}
+                            <button
+                                className="mt-4 px-6 py-2 bg-blue-900 text-white font-bold rounded shadow hover:bg-blue-800 transition"
+                                onClick={regenerate}
+                            >
+                                Play Again
+                            </button>
+                        </div>
+                    </div>
+                )}
+            </div>
+            {/* Leaderboard Sidebar */}
+            <div className="w-80 ml-8 bg-white/80 rounded-xl shadow-lg p-4 h-fit self-start mt-2">
+                <h3 className="text-xl font-bold mb-2 text-blue-900 text-center">🏆 Leaderboard</h3>
+                <ul className="rounded p-2 text-blue-900 text-center">
+                    {leaderboard.map((entry, i) => (
+                        <li key={i} className="py-1">
+                            <span className="font-bold">{entry.username}</span>: {entry.score}
+                        </li>
+                    ))}
+                </ul>
+            </div>
         </div>
     );
 }
